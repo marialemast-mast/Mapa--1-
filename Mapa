@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>III Encuentro Regional - Mapa Interactivo</title>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  }
+
+  #app-header {
+    background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 60%, #66bb6a 100%);
+    color: #fff;
+    padding: 14px 24px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    position: relative;
+    z-index: 1000;
+  }
+
+  #app-header h1 {
+    font-size: 1.15rem;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+  }
+
+  #app-header p {
+    font-size: 0.8rem;
+    opacity: 0.9;
+    margin-top: 2px;
+  }
+
+  #map {
+    width: 100%;
+    height: calc(100vh - 66px);
+  }
+
+  /* --- Leyenda --- */
+  .legend {
+    background: #ffffffee;
+    padding: 10px 14px;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.25);
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: #263238;
+  }
+
+  .legend strong {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 0.85rem;
+    color: #1b5e20;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+
+  .legend-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    box-shadow: 0 0 3px rgba(0,0,0,0.4);
+    flex-shrink: 0;
+  }
+
+  /* --- Popup personalizado --- */
+  .leaflet-popup-content-wrapper {
+    border-radius: 12px;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .leaflet-popup-content {
+    margin: 0;
+    width: 250px !important;
+  }
+
+  .popup-card {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .popup-header {
+    padding: 10px 14px;
+    color: #fff;
+    font-weight: 700;
+    font-size: 1rem;
+  }
+
+  .popup-body {
+    padding: 10px 14px 14px 14px;
+    background: #fafafa;
+  }
+
+  .popup-category {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    padding: 3px 9px;
+    border-radius: 20px;
+    margin-bottom: 8px;
+    color: #fff;
+  }
+
+  .popup-desc {
+    font-size: 0.85rem;
+    color: #37474f;
+    line-height: 1.4;
+  }
+
+  .leaflet-popup-tip {
+    background: #fafafa;
+  }
+</style>
+</head>
+<body>
+
+<div id="app-header">
+  <h1>🗺️ III Encuentro Regional — Mapa de Sedes y Delegaciones</h1>
+  <p>Cundinamarca y Amazonas, Colombia</p>
+</div>
+
+<div id="map"></div>
+
+<script>
+  // -----------------------------
+  // Configuración de categorías
+  // -----------------------------
+  const categoryStyles = {
+    "sede": {
+      color: "#c62828",       // rojo intenso -> sede oficial
+      label: "Punto de Encuentro / Sede Oficial"
+    },
+    "local": {
+      color: "#f9a825",       // ámbar/dorado -> producción local (evoca la miel/apicultura)
+      label: "Cundinamarca / Producción Local"
+    },
+    "externa": {
+      color: "#1565c0",       // azul -> delegación externa / lejana
+      label: "Amazonas / Delegación Externa"
+    }
+  };
+
+  // -----------------------------
+  // Datos de los puntos
+  // -----------------------------
+  const puntos = [
+    {
+      nombre: "Zipaquirá",
+      lat: 5.0247,
+      lng: -74.0056,
+      tipo: "sede",
+      categoria: "Punto de Encuentro / Sede Oficial",
+      descripcion: "Epicentro y sede del III Encuentro Regional"
+    },
+    {
+      nombre: "Suesca",
+      lat: 5.1050,
+      lng: -73.7987,
+      tipo: "local",
+      categoria: "Cundinamarca / Producción Local",
+      descripcion: "Producción apícola sostenible (Apicun)"
+    },
+    {
+      nombre: "Guatavita",
+      lat: 4.9339,
+      lng: -73.8306,
+      tipo: "local",
+      categoria: "Cundinamarca / Producción Local",
+      descripcion: "Productos agroartesanales de impacto regional"
+    },
+    {
+      nombre: "Amazonas",
+      lat: -4.2153,
+      lng: -69.9406,
+      tipo: "externa",
+      categoria: "Amazonas / Delegación Externa",
+      descripcion: "Delegación invitada y oferta biodiversa lejana"
+    }
+  ];
+
+  // -----------------------------
+  // Inicializar mapa
+  // -----------------------------
+  const map = L.map('map', {
+    zoomControl: true
+  }).setView([4.5, -74.0], 6);
+
+  // Capa base estilo limpio: CartoDB Positron
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    subdomains: 'abcd',
+    maxZoom: 19
+  }).addTo(map);
+
+  // -----------------------------
+  // Crear icono de marcador circular por color
+  // -----------------------------
+  function crearIcono(color) {
+    return L.divIcon({
+      className: 'custom-marker',
+      html: `<div style="
+                background:${color};
+                width:22px;
+                height:22px;
+                border-radius:50%;
+                border:3px solid #fff;
+                box-shadow:0 2px 6px rgba(0,0,0,0.4);
+             "></div>`,
+      iconSize: [22, 22],
+      iconAnchor: [11, 11],
+      popupAnchor: [0, -12]
+    });
+  }
+
+  // -----------------------------
+  // Agregar marcadores
+  // -----------------------------
+  const bounds = [];
+  const markerGroup = L.layerGroup().addTo(map);
+
+  puntos.forEach(p => {
+    const style = categoryStyles[p.tipo];
+    const icon = crearIcono(style.color);
+
+    const popupHtml = `
+      <div class="popup-card">
+        <div class="popup-header" style="background:${style.color};">
+          ${p.nombre}
+        </div>
+        <div class="popup-body">
+          <span class="popup-category" style="background:${style.color};">
+            ${p.categoria}
+          </span>
+          <div class="popup-desc">${p.descripcion}</div>
+        </div>
+      </div>
+    `;
+
+    const marker = L.marker([p.lat, p.lng], { icon: icon })
+      .bindPopup(popupHtml, { closeButton: true, maxWidth: 260 });
+
+    marker.addTo(markerGroup);
+    bounds.push([p.lat, p.lng]);
+  });
+
+  // -----------------------------
+  // Ajustar vista para incluir todos los puntos
+  // -----------------------------
+  map.fitBounds(bounds, { padding: [60, 60] });
+
+  // -----------------------------
+  // Leyenda
+  // -----------------------------
+  const legend = L.control({ position: 'bottomright' });
+  legend.onAdd = function () {
+    const div = L.DomUtil.create('div', 'legend');
+    let html = '<strong>Categorías</strong>';
+    Object.values(categoryStyles).forEach(s => {
+      html += `
+        <div class="legend-item">
+          <span class="legend-dot" style="background:${s.color};"></span>
+          <span>${s.label}</span>
+        </div>`;
+    });
+    div.innerHTML = html;
+    return div;
+  };
+  legend.addTo(map);
+</script>
+
+</body>
+</html>
